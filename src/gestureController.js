@@ -1,4 +1,5 @@
 import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+import { CONFIG } from "./config.js";
 
 const MODEL_ASSET_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm";
 
@@ -64,7 +65,7 @@ function computeFingerStates(worldLandmarks) {
     const v2 = subtract3(mcp, pip);
     const dot = dot3(v1, v2);
 
-    states.push(dot < -0.015);
+    states.push(dot < CONFIG.gesture.fingerBendThreshold);
   }
   return states;
 }
@@ -82,15 +83,16 @@ function computeOpenness(worldLandmarks) {
 function determineGesture(fingerStates) {
   const extendedCount = fingerStates.filter(Boolean).length;
 
-  if (extendedCount >= 4) {
+  if (extendedCount >= CONFIG.gesture.minExtendedFingersForOpen) {
     return "open";
   }
 
-  if (extendedCount === 0) {
+  if (extendedCount === CONFIG.gesture.maxExtendedFingersForFist) {
     return "fist";
   }
 
-  if (fingerStates[1] && !fingerStates[0] && !fingerStates[2] && !fingerStates[3] && !fingerStates[4]) {
+  // Pointing: Index extended, others flexed (thumb can be flexible)
+  if (fingerStates[1] && !fingerStates[2] && !fingerStates[3] && !fingerStates[4]) {
     return "point";
   }
 
@@ -118,7 +120,7 @@ export class GestureController {
     this.ready = false;
 
     this.options = {
-      smoothingFactor: 0.28,
+      smoothingFactor: CONFIG.gesture.smoothingFactor,
       maxFPS: 60,
       ...options,
     };

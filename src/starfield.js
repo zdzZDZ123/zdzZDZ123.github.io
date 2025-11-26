@@ -1,11 +1,7 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+import { CONFIG } from "./config.js";
 
-const DEFAULTS = {
-  radius: 48,
-  starCount: 360,
-  planetCount: 5,
-  backgroundStarCount: 2200,
-};
+const DEFAULTS = CONFIG.starfield;
 
 function randomInRange(min, max) {
   return Math.random() * (max - min) + min;
@@ -114,6 +110,8 @@ export class Starfield {
         type: "star",
         label: `星辰 ${i + 1}`,
         kindLabel: "恒星",
+        temperature: Math.round(randomInRange(3000, 12000)) + "K",
+        mass: randomInRange(0.5, 20).toFixed(2) + " M☉",
         baseEmissive: material.emissive.clone(),
         baseEmissiveIntensity: material.emissiveIntensity,
         baseScale: mesh.scale.clone(),
@@ -150,6 +148,8 @@ export class Starfield {
         type: "planet",
         label: `行星 ${i + 1}`,
         kindLabel: "行星",
+        atmosphere: Math.random() > 0.3 ? "存在" : "无",
+        gravity: randomInRange(0.5, 2.5).toFixed(2) + " g",
         baseEmissive: material.emissive.clone(),
         baseEmissiveIntensity: material.emissiveIntensity,
         baseScale: mesh.scale.clone(),
@@ -178,8 +178,8 @@ export class Starfield {
   }
 
   update(deltaTime) {
-    this.group.rotation.y += deltaTime * 0.045;
-    this.backgroundGroup.rotation.y += deltaTime * 0.01;
+    this.group.rotation.y += deltaTime * this.options.rotationSpeed;
+    this.backgroundGroup.rotation.y += deltaTime * this.options.backgroundRotationSpeed;
   }
 
   clearHighlight() {

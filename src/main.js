@@ -1,10 +1,16 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 import { Starfield } from "./starfield.js";
 import { GestureController } from "./gestureController.js";
+import { CONFIG } from "./config.js";
 
 const gestureStatusEl = document.getElementById("gesture-status");
 const selectionStatusEl = document.getElementById("selection-status");
 const fullscreenBtn = document.getElementById("fullscreen-toggle");
+const settingsBtn = document.getElementById("settings-toggle");
+const closeSettingsBtn = document.getElementById("close-settings");
+const settingsPanel = document.getElementById("settings-panel");
+const rotationSpeedInput = document.getElementById("rotation-speed");
+const sensitivityInput = document.getElementById("sensitivity");
 const videoEl = document.getElementById("hand-video");
 const handCanvas = document.getElementById("hand-canvas");
 const canvas = document.getElementById("star-canvas");
@@ -19,10 +25,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x040610);
-scene.fog = new THREE.Fog(0x040610, 36, 140);
+scene.background = new THREE.Color(CONFIG.scene.backgroundColor);
+scene.fog = new THREE.Fog(CONFIG.scene.fogColor, CONFIG.scene.fogNear, CONFIG.scene.fogFar);
 
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, 1, CONFIG.camera.near, CONFIG.camera.far);
 scene.add(camera);
 
 const starfield = new Starfield(scene);
@@ -31,10 +37,10 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
 const cameraState = {
-  radius: 58,
+  radius: CONFIG.camera.initialRadius,
   theta: Math.PI * 0.45,
   phi: Math.PI * 0.5,
-  targetRadius: 58,
+  targetRadius: CONFIG.camera.initialRadius,
 };
 
 let activeSelection = null;
@@ -56,10 +62,8 @@ window.addEventListener("resize", updateRendererSize);
 updateRendererSize();
 
 function mapOpennessToRadius(openness) {
-  const minOpenness = 0.055;
-  const maxOpenness = 0.16;
-  const minRadius = 28;
-  const maxRadius = 86;
+  const { minOpenness, maxOpenness } = CONFIG.gesture;
+  const { minRadius, maxRadius } = CONFIG.camera;
 
   const clamped = Math.min(Math.max(openness, minOpenness), maxOpenness);
   const ratio = (clamped - minOpenness) / (maxOpenness - minOpenness);
@@ -68,14 +72,13 @@ function mapOpennessToRadius(openness) {
 
 function updateCamera(movement) {
   if (movement) {
-    const rotateSensitivity = 3.8;
-    cameraState.theta += movement.x * rotateSensitivity;
-    cameraState.phi += movement.y * rotateSensitivity;
+    cameraState.theta += movement.x * CONFIG.camera.rotateSensitivity;
+    cameraState.phi += movement.y * CONFIG.camera.rotateSensitivity;
     const epsilon = 0.16;
     cameraState.phi = Math.min(Math.max(cameraState.phi, epsilon), Math.PI - epsilon);
   }
 
-  cameraState.radius = THREE.MathUtils.lerp(cameraState.radius, cameraState.targetRadius, 0.08);
+  cameraState.radius = THREE.MathUtils.lerp(cameraState.radius, cameraState.targetRadius, CONFIG.camera.zoomLerpFactor);
 
   const x = cameraState.radius * Math.sin(cameraState.phi) * Math.cos(cameraState.theta);
   const y = cameraState.radius * Math.cos(cameraState.phi);
@@ -101,7 +104,7 @@ function translateGestureLabel(gesture) {
   }
 }
 
-function scheduleHighlightClear(delay = 1600) {
+function scheduleHighlightClear(delay = CONFIG.ui.highlightClearDelay) {
   if (clearHighlightTimer) {
     clearTimeout(clearHighlightTimer);
   }
@@ -120,7 +123,7 @@ function updateSelection(pointerCoords) {
   const intersects = raycaster.intersectObjects(starfield.getPickableObjects(), false);
 
   if (intersects.length === 0) {
-    scheduleHighlightClear(600);
+    scheduleHighlightClear(CONFIG.ui.highlightEmptyClearDelay);
     return;
   }
 
@@ -128,10 +131,16 @@ function updateSelection(pointerCoords) {
   if (activeSelection !== object) {
     activeSelection = object;
     starfield.highlight(object);
-    const kindLabel = object.userData.kindLabel ?? (object.userData.type === "planet" ? "行星" : "恒星");
-    selectionStatusEl.textContent = `${object.userData.label}（${kindLabel}）`;
+    const { label, kindLabel, temperature, mass, atmosphere, gravity, type } = object.userData;
+    let details = "";
+    if (type === "star") {
+      details = ` | 温: ${temperature} | 质: ${mass}`;
+    } else {
+      details = ` | 大气: ${atmosphere} | 重力: ${gravity}`;
+    }
+    selectionStatusEl.textContent = `${label}（${kindLabel}）${details}`;
   }
-  scheduleHighlightClear(2200);
+  scheduleHighlightClear(CONFIG.ui.highlightClearDelay);
 }
 
 function renderLoop() {
@@ -175,14 +184,14 @@ async function initGestures() {
 
     if (!present) {
       gestureStatusEl.textContent = translateGestureLabel("none");
-      scheduleHighlightClear(800);
+      scheduleHighlightClear(CONFIG.ui.noGestureClearDelay);
       return;
     }
 
     gestureStatusEl.textContent = translateGestureLabel(gesture);
 
     const radius = mapOpennessToRadius(openness);
-    cameraState.targetRadius = THREE.MathUtils.lerp(cameraState.targetRadius, radius, 0.25);
+    cameraState.targetRadius = THREE.MathUtils.lerp(cameraState.targetRadius, radius, CONFIG.camera.targetRadiusLerpFactor);
 
     if (movement) {
       updateCamera(movement);
@@ -214,9 +223,32 @@ function setupFullscreenToggle() {
   updateButtonLabel();
 }
 
+function setupSettings() {
+  settingsBtn.addEventListener("click", () => {
+    settingsPanel.classList.remove("hidden");
+  });
+
+  closeSettingsBtn.addEventListener("click", () => {
+    settingsPanel.classList.add("hidden");
+  });
+
+  rotationSpeedInput.value = CONFIG.starfield.rotationSpeed;
+  rotationSpeedInput.addEventListener("input", (e) => {
+    const val = parseFloat(e.target.value);
+    CONFIG.starfield.rotationSpeed = val;
+    starfield.options.rotationSpeed = val; // Force update
+  });
+
+  sensitivityInput.value = CONFIG.camera.rotateSensitivity;
+  sensitivityInput.addEventListener("input", (e) => {
+    CONFIG.camera.rotateSensitivity = parseFloat(e.target.value);
+  });
+}
+
 async function bootstrap() {
   renderLoop();
   setupFullscreenToggle();
+  setupSettings();
   try {
     await setupCameraStream();
     await initGestures();
