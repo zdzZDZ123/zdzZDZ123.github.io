@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>手势控制的 3D 星空</title>
+    <link rel="stylesheet" href="./styles/style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="scene-wrapper">
+        <canvas id="star-canvas"></canvas>
+        <div class="overlay-panel">
+          <div class="status-line" id="gesture-status">手势识别初始化中…</div>
+          <div class="status-line" id="selection-status">尚未选中星体</div>
+          <button id="fullscreen-toggle" class="control-btn">进入全屏</button>
+        </div>
+      </section>
+      <section class="sidebar">
+        <h1>手势控制的 3D 星空</h1>
+        <p>允许浏览器访问摄像头以体验完整交互。</p>
+        <div class="instructions">
+          <h2>手势说明</h2>
+          <ul>
+            <li><strong>张开手掌：</strong>拉远镜头，观察更大范围的星空。</li>
+            <li><strong>握拳：</strong>拉近镜头，接近星体。</li>
+            <li><strong>指向：</strong>使用食指指向屏幕选中星体。</li>
+            <li><strong>手掌移动：</strong>左右上下移动以旋转星空视角。</li>
+          </ul>
+        </div>
+        <div class="video-container">
+          <video id="hand-video" autoplay playsinline></video>
+          <canvas id="hand-canvas"></canvas>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
